@@ -3,6 +3,39 @@ name = "living-study-guide"
 version = "0.1.0"
 requires-python = ">=3.15"
 dependencies = [
+    "alembic>=1.20.1",
     "fastapi>=0.162.4",
+    "openai>=3.49.0",
+    "psycopg[binary]>=3.3.8",
+    "pydantic>=2.14.3",
+    "pydantic-settings>=2.16.2",
+    "pypdf>=7.0.1",
+    "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.33",
+    "sqlalchemy>=2.1.8",
     "uvicorn>=0.54.0",
 ]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.4.1.post1",
+    "ruff>=0.17.4",
+]
+
+[tool.ruff]
+# The project pins Python 3.15; the linter target follows the interpreter.
+target-version = "py315"
+line-length = 120
+
+[tool.ruff.lint]
+# FastAPI uses `Depends(...)` / `File(...)` / `Form(...)` in function default
+# arguments as its documented, idiomatic dependency-injection mechanism.
+# flake8-bugbear's B008 flags this pattern in general, but for a FastAPI project
+# it is a known false positive, so it is excluded project-wide.
+ignore = [
+    "B008",  # FastAPI Depends()/File()/Form() in argument defaults (idiomatic)
+]
+
+[tool.ruff.lint.per-file-ignores]

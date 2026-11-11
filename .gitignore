@@ -222,3 +222,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Regenerated mock-payload run reports (keep the dir, ignore its contents)
+tests/results/
+!tests/results/.gitkeep

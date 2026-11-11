@@ -1,0 +1,172 @@
+### =============================================================================
+### Living Study Guide — API Mock Payloads (IntelliJ IDEA REST Client / VS Code REST)
+### -----------------------------------------------------------------------------
+### Every request below is a ready-to-run mock payload that exercises one API
+### endpoint. Replace the {{...}} placeholders (UUIDs) after running the seed
+### steps. The programmatic, self-resolving version is:
+###
+###     uv run python tests/data/run_payloads.py          (in-process, no server)
+###     LSG_BASE_URL=http://127.0.0.1:8000 uv run python tests/data/run_payloads.py
+###
+### Start the server with:  uv run uvicorn main:app --port 8000
+### =============================================================================
+
+### --- 0. Configuration (set these to a running server) ---
+@baseUrl = http://127.0.0.1:8000
+
+### =============================================================================
+### SEED — create source note, generate cards, capture the returned IDs.
+### After running, copy the `id` values from each response into the placeholders
+### below (note_id, card_flashcard_id, card_mcq_id, card_fillblank_id).
+### =============================================================================
+
+### Seed 1: Create a rich multi-paragraph note (FR-01/FR-02)
+POST {{baseUrl}}/api/notes
+Content-Type: application/json
+
+{
+  "title": "Molecular Biology Study Notes",
+  "content": "Photosynthesis is the process by which green plants convert light energy into chemical energy stored in the sugar glucose. Chlorophyll is the green pigment located in the chloroplast that captures sunlight. The light-dependent reactions take place in the thylakoid membranes and produce the energy carriers ATP and NADPH. Cellular respiration breaks down glucose to release the stored energy in the form of ATP. Mitochondria are the organelles where aerobic respiration occurs and are described as the powerhouses of the cell. The enzyme catalase breaks down hydrogen peroxide into water and oxygen gas."
+}
+
+### -> copy the returned id into {{note_id}}
+
+### Seed 2: Generate all three card types (FR-05/FR-06/FR-07/FR-08/FR-10)
+###   response[0]=flashcard, [1]=mcq, [2]=fill_blank -> copy ids into the three
+###   card placeholders below.
+POST {{baseUrl}}/api/cards/generate
+Content-Type: application/json
+
+{
+  "note_ids": ["{{note_id}}"],
+  "style": "application-level",
+  "card_types": ["flashcard", "mcq", "fill_blank"],
+  "count": 3
+}
+
+### =============================================================================
+### NOTES
+### =============================================================================
+
+### FR-01 / FR-26 — List all source notes
+GET {{baseUrl}}/api/notes
+
+### FR-03 — Search notes by keyword
+GET {{baseUrl}}/api/notes?q=chlorophyll
+
+### FR-01 — Fetch a single note by id
+GET {{baseUrl}}/api/notes/{{note_id}}
+
+### FR-01 — Upload a plain-text note file (multipart)
+POST {{baseUrl}}/api/notes/upload
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="history.txt"
+Content-Type: text/plain
+
+The Industrial Revolution began in the late 18th century. Steam engines transformed manufacturing and transport.
+--WebAppBoundary
+Content-Disposition: form-data; name="title"
+
+History Upload
+--WebAppBoundary--
+
+### FR-04 — Update a note's title and content
+PUT {{baseUrl}}/api/notes/{{note_id}}
+Content-Type: application/json
+
+{
+  "title": "Molecular Biology Study Notes (Revised)",
+  "content": "Photosynthesis is the process by which green plants convert light energy into chemical energy stored in the sugar glucose. Cellular respiration breaks down glucose to release the stored energy in the form of ATP. Mitochondria are the organelles where aerobic respiration occurs and are described as the powerhouses of the cell."
+}
+
+### =============================================================================
+### CARD GENERATION & HUMAN-IN-THE-LOOP REVIEW
+### =============================================================================
+
+### FR-10/FR-11 — List pending cards for review
+GET {{baseUrl}}/api/cards/pending
+
+### FR-12 — Approve the flashcard (moves it to the library)
+PATCH {{baseUrl}}/api/cards/{{card_flashcard_id}}/approve
+
+### FR-13 — Reject the MCQ card
+PATCH {{baseUrl}}/api/cards/{{card_mcq_id}}/reject
+
+### FR-14 — Edit the fill-blank card before approving it
+PUT {{baseUrl}}/api/cards/{{card_fillblank_id}}/edit
+Content-Type: application/json
+
+{
+  "prompt": "What organelle is known as the powerhouse of the cell?",
+  "answer": "Mitochondria",
+  "metadata": { "difficulty": "easy", "tags": ["cells", "biology"], "style": "application-level" }
+}
+
+### FR-12 — Approve the edited fill-blank card
+PATCH {{baseUrl}}/api/cards/{{card_fillblank_id}}/approve
+
+### FR-15 — Regenerate the rejected MCQ from its source segment
+POST {{baseUrl}}/api/cards/{{card_mcq_id}}/regenerate
+Content-Type: application/json
+
+{
+  "style": "conceptual",
+  "instructions": "Make the question deeper and application-oriented."
+}
+
+### =============================================================================
+### STUDY LIBRARY
+### =============================================================================
+
+### FR-18 — Search the approved library by keyword
+GET {{baseUrl}}/api/cards/library?q=Mitochondria
+
+### FR-18 — Filter approved library by card type (include soft-deleted too)
+GET {{baseUrl}}/api/cards/library?card_type=fill_blank&include_inactive=false
+
+### FR-19 — Deactivate (soft-delete) an approved card
+PATCH {{baseUrl}}/api/cards/{{card_flashcard_id}}/toggle-active
+
+### FR-19 — Re-activate the soft-deleted card
+PATCH {{baseUrl}}/api/cards/{{card_flashcard_id}}/toggle-active
+
+### =============================================================================
+### SELF-QUIZZING
+### =============================================================================
+
+### FR-22/FR-23 — Start a quiz session from the approved library
+POST {{baseUrl}}/api/quiz/session
+Content-Type: application/json
+
+{
+  "card_type": "fill_blank",
+  "limit": 5
+}
+
+### -> copy the returned id into {{session_id}}
+
+### FR-25 — Complete the quiz session with mixed answers
+POST {{baseUrl}}/api/quiz/session/{{session_id}}/complete
+Content-Type: application/json
+
+{
+  "answers": [
+    { "card_id": "{{card_fillblank_id}}", "user_answer": "Mitochondria", "is_correct": true },
+    { "card_id": "{{card_fillblank_id}}", "user_answer": "Ribosome", "is_correct": false }
+  ]
+}
+
+### FR-25 — View quiz performance history
+GET {{baseUrl}}/api/quiz/results
+
+### =============================================================================
+### CLEANUP
+### =============================================================================
+
+### FR-20 — Permanently delete a card from the library
+DELETE {{baseUrl}}/api/cards/{{card_flashcard_id}}
+
+### FR-04 — Delete a note (and cascade its cards)
+DELETE {{baseUrl}}/api/notes/{{note_id}}

@@ -1,0 +1,262 @@
+{
+  "manifest_version": "1.0",
+  "description": "Living Study Guide — mock payload suite that exercises EVERY REST endpoint in app/routes.py. Tokens of the form $seed.<key> are resolved at runtime from the 'seed' section below; every operation's {id} path values reference those runtime-generated IDs. Run via:  uv run python tests/data/run_payloads.py",
+  "default_user_id": "00000000-0000-0000-0000-000000000001",
+
+  "seed": {
+    "steps": [
+      {
+        "label": "Create rich multi-paragraph source note (FR-01/FR-02)",
+        "method": "POST",
+        "path": "/api/notes",
+        "body": {
+          "title": "Molecular Biology Study Notes",
+          "content": "Photosynthesis is the process by which green plants convert light energy into chemical energy stored in the sugar glucose. Chlorophyll is the green pigment located in the chloroplast that captures sunlight. The light-dependent reactions take place in the thylakoid membranes and produce the energy carriers ATP and NADPH. Cellular respiration breaks down glucose to release the stored energy in the form of ATP. Mitochondria are the organelles where aerobic respiration occurs and are described as the powerhouses of the cell. The enzyme catalase breaks down hydrogen peroxide into water and oxygen gas."
+        },
+        "expect_status": 200,
+        "expect": {
+          "title": "Molecular Biology Study Notes"
+        },
+        "collect": {
+          "note_id": "id"
+        }
+      },
+      {
+        "label": "Generate all three card types, application-level (FR-05/FR-06/FR-07/FR-08/FR-10)",
+        "method": "POST",
+        "path": "/api/cards/generate",
+        "body": {
+          "note_ids": ["$seed.note_id"],
+          "style": "application-level",
+          "card_types": ["flashcard", "mcq", "fill_blank"],
+          "count": 3
+        },
+        "expect_status": 200,
+        "expect_array_min": 1,
+        "collect": {
+          "cards": "$__RESP__",
+          "card_flashcard_id": "0.id",
+          "card_mcq_id": "1.id",
+          "card_fillblank_id": "2.id"
+        }
+      }
+    ]
+  },
+
+  "operations": [
+    {
+      "id": "GET-notes-list-all",
+      "label": "List all source notes (FR-01 / FR-26 persistence)",
+      "method": "GET",
+      "path": "/api/notes",
+      "expect_status": 200,
+      "expect_array_min": 1
+    },
+    {
+      "id": "GET-notes-search",
+      "label": "Search notes by keyword (FR-03)",
+      "method": "GET",
+      "path": "/api/notes",
+      "query": { "q": "chlorophyll" },
+      "expect_status": 200,
+      "expect_array_min": 1
+    },
+    {
+      "id": "POST-note-create",
+      "label": "Create a second standalone note",
+      "method": "POST",
+      "path": "/api/notes",
+      "body": {
+        "title": "Chemistry Basics",
+        "content": "A chemical bond is the attraction between atoms in a molecule. The periodic table organizes 118 known elements by atomic number."
+      },
+      "expect_status": 200,
+      "expect": { "title": "Chemistry Basics" },
+      "collect": { "second_note_id": "id" }
+    },
+    {
+      "id": "GET-note-detail",
+      "label": "Fetch a single note by id (FR-01)",
+      "method": "GET",
+      "path": "/api/notes/{note_id}",
+      "path_params": { "note_id": "$seed.note_id" },
+      "expect_status": 200,
+      "expect": { "title": "Molecular Biology Study Notes" }
+    },
+    {
+      "id": "POST-note-upload-text",
+      "label": "Upload a plain-text note file via multipart (FR-01)",
+      "method": "POST",
+      "path": "/api/notes/upload",
+      "multipart": {
+        "file": {
+          "filename": "history.txt",
+          "content": "The Industrial Revolution began in the late 18th century. Steam engines transformed manufacturing and transport.",
+          "content_type": "text/plain"
+        },
+        "title": "History Upload"
+      },
+      "expect_status": 200,
+      "expect": { "title": "History Upload" },
+      "collect": { "uploaded_note_id": "id" }
+    },
+    {
+      "id": "PUT-note-update",
+      "label": "Update a note's title and content (FR-04)",
+      "method": "PUT",
+      "path": "/api/notes/{note_id}",
+      "path_params": { "note_id": "$seed.note_id" },
+      "body": {
+        "title": "Molecular Biology Study Notes (Revised)",
+        "content": "Photosynthesis is the process by which green plants convert light energy into chemical energy stored in the sugar glucose. Cellular respiration breaks down glucose to release the stored energy in the form of ATP. Mitochondria are the organelles where aerobic respiration occurs and are described as the powerhouses of the cell."
+      },
+      "expect_status": 200,
+      "expect": { "title": "Molecular Biology Study Notes (Revised)" }
+    },
+    {
+      "id": "GET-pending-cards",
+      "label": "List pending cards for review (FR-10/FR-11)",
+      "method": "GET",
+      "path": "/api/cards/pending",
+      "expect_status": 200,
+      "expect_array_min": 1
+    },
+    {
+      "id": "PATCH-card-approve",
+      "label": "Approve the flashcard -> moves to library (FR-12)",
+      "method": "PATCH",
+      "path": "/api/cards/{card_id}/approve",
+      "path_params": { "card_id": "$seed.card_flashcard_id" },
+      "expect_status": 200,
+      "expect": { "status": "approved", "is_active": 1 }
+    },
+    {
+      "id": "PATCH-card-reject",
+      "label": "Reject the MCQ card (FR-13)",
+      "method": "PATCH",
+      "path": "/api/cards/{card_id}/reject",
+      "path_params": { "card_id": "$seed.card_mcq_id" },
+      "expect_status": 200,
+      "expect": { "status": "rejected" }
+    },
+    {
+      "id": "PUT-card-edit",
+      "label": "Edit the fill-blank card before approval (FR-14)",
+      "method": "PUT",
+      "path": "/api/cards/{card_id}/edit",
+      "path_params": { "card_id": "$seed.card_fillblank_id" },
+      "body": {
+        "prompt": "What organelle is known as the powerhouse of the cell?",
+        "answer": "Mitochondria",
+        "metadata": { "difficulty": "easy", "tags": ["cells", "biology"], "style": "application-level" }
+      },
+      "expect_status": 200,
+      "expect": { "prompt": "What organelle is known as the powerhouse of the cell?" }
+    },
+    {
+      "id": "PATCH-card-approve-edited",
+      "label": "Approve the edited fill-blank card (FR-12)",
+      "method": "PATCH",
+      "path": "/api/cards/{card_id}/approve",
+      "path_params": { "card_id": "$seed.card_fillblank_id" },
+      "expect_status": 200,
+      "expect": { "status": "approved" }
+    },
+    {
+      "id": "POST-card-regenerate",
+      "label": "Regenerate the rejected MCQ from its source (FR-15)",
+      "method": "POST",
+      "path": "/api/cards/{card_id}/regenerate",
+      "path_params": { "card_id": "$seed.card_mcq_id" },
+      "body": { "style": "conceptual", "instructions": "Make the question deeper and application-oriented." },
+      "expect_status": 200,
+      "expect": { "status": "pending", "type": "mcq" }
+    },
+    {
+      "id": "GET-library-search",
+      "label": "Search the approved library by keyword (FR-18)",
+      "method": "GET",
+      "path": "/api/cards/library",
+      "query": { "q": "Mitochondria" },
+      "expect_status": 200,
+      "expect_array_min": 1
+    },
+    {
+      "id": "GET-library-filter-by-type",
+      "label": "Filter approved library by card type (FR-18)",
+      "method": "GET",
+      "path": "/api/cards/library",
+      "query": { "card_type": "fill_blank", "include_inactive": "false" },
+      "expect_status": 200
+    },
+    {
+      "id": "PATCH-card-toggle-active",
+      "label": "Deactivate (soft-delete) an approved card (FR-19)",
+      "method": "PATCH",
+      "path": "/api/cards/{card_id}/toggle-active",
+      "path_params": { "card_id": "$seed.card_flashcard_id" },
+      "expect_status": 200,
+      "expect": { "is_active": 0 }
+    },
+    {
+      "id": "PATCH-card-reactivate",
+      "label": "Re-activate the soft-deleted card so it is quiz-able again (FR-19)",
+      "method": "PATCH",
+      "path": "/api/cards/{card_id}/toggle-active",
+      "path_params": { "card_id": "$seed.card_flashcard_id" },
+      "expect_status": 200,
+      "expect": { "is_active": 1 }
+    },
+    {
+      "id": "POST-quiz-start",
+      "label": "Start a quiz session from the approved library (FR-22/FR-23)",
+      "method": "POST",
+      "path": "/api/quiz/session",
+      "body": { "card_type": "fill_blank", "limit": 5 },
+      "expect_status": 200,
+      "expect": { "score": 0, "total_questions": {"$gte": 1} },
+      "collect": { "quiz_session_id": "id" }
+    },
+    {
+      "id": "POST-quiz-complete",
+      "label": "Complete the quiz session with mixed answers (FR-25)",
+      "method": "POST",
+      "path": "/api/quiz/session/{session_id}/complete",
+      "path_params": { "session_id": "$seed.quiz_session_id" },
+      "body": {
+        "answers": [
+          { "card_id": "$seed.card_fillblank_id", "user_answer": "Mitochondria", "is_correct": true },
+          { "card_id": "$seed.card_fillblank_id", "user_answer": "Ribosome", "is_correct": false }
+        ]
+      },
+      "expect_status": 200,
+      "expect": { "score": 1, "total_questions": 2 }
+    },
+    {
+      "id": "GET-quiz-results",
+      "label": "View quiz performance history (FR-25)",
+      "method": "GET",
+      "path": "/api/quiz/results",
+      "expect_status": 200,
+      "expect_array_min": 1
+    },
+    {
+      "id": "DELETE-card-permanent",
+      "label": "Permanently delete a card from the library (FR-20)",
+      "method": "DELETE",
+      "path": "/api/cards/{card_id}",
+      "path_params": { "card_id": "$seed.card_flashcard_id" },
+      "expect_status": 200,
+      "expect": { "message": "Card permanently deleted" }
+    },
+    {
+      "id": "DELETE-note",
+      "label": "Delete the extra chemistry note (FR-04)",
+      "method": "DELETE",
+      "path": "/api/notes/{note_id}",
+      "path_params": { "note_id": "$seed.second_note_id" },
+      "expect_status": 200,
+      "expect": { "message": "Note deleted successfully" }
+    }
+  ]
+}
