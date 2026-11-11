@@ -1,0 +1,8 @@
+[project]
+name = "living-study-guide"
+version = "0.1.0"
+requires-python = ">=3.15"
+dependencies = [
+    "fastapi>=0.162.4",
+    "uvicorn>=0.54.0",
+]
